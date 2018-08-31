@@ -22,3 +22,14 @@ h1 {
 #credits {
   margin-top: 100px;
 }
+
+/* Append Scroll Styles */
+body.no-padding {
+  padding: 0px !important;
+}
+.scroll-content {
+  height: 500px;
+  overflow-y: scroll;
+  padding: 20px;
+  position:relative;
+}

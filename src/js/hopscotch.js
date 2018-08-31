@@ -1060,6 +1060,7 @@ HopscotchBubble.prototype = {
         resizeCooldown  = false, // for updating after window resize
         onWinResize,
         appendOnLoad,
+        appendEl,
         children,
         numChildren,
         node,
@@ -1120,7 +1121,7 @@ HopscotchBubble.prototype = {
        *
        * @private
        */
-      this.appendEl = function(el) {
+      appendEl = function(el) {
           var appendToEl = utils.getStepTargetHelper(opt.appendTo);
           if (appendToEl) {
               appendToEl.appendChild(el);
@@ -1144,7 +1145,7 @@ HopscotchBubble.prototype = {
 
     //Finally, append our new bubble to body once the DOM is ready.
     if (utils.documentIsReady()) {
-      this.appendEl(el);
+      appendEl(el);
     }
     else {
       // Moz, webkit, Opera
@@ -1152,7 +1153,7 @@ HopscotchBubble.prototype = {
           appendOnLoad = function() {
               document.removeEventListener('DOMContentLoaded', appendOnLoad);
               window.removeEventListener('load', appendOnLoad);
-              this.appendEl(el);
+              appendEl(el);
         };
 
         document.addEventListener('DOMContentLoaded', appendOnLoad, false);
@@ -1163,7 +1164,7 @@ HopscotchBubble.prototype = {
           if (document.readyState === 'complete') {
             document.detachEvent('onreadystatechange', appendOnLoad);
             window.detachEvent('onload', appendOnLoad);
-            this.appendEl(el);
+            appendEl(el);
           }
         };
 
@@ -1395,6 +1396,111 @@ Hopscotch = function(initOptions) {
    */
   targetClickNextFn = function() {
     self.nextStep();
+  },
+
+  /**
+   *
+   * @private
+   * @param {Function} cb Callback to invoke after done scrolling.
+   */
+  adjustAppendToElementScroll = function(appendTo, cb) { // TODO: Refactor to combine it with adjustWindowScroll
+      var bubble         = getBubble(),
+
+          // Calculate the bubble element top and bottom position
+          bubbleEl       = bubble.element,
+          bubbleTop      = utils.getPixelValue(bubbleEl.style.top),
+          bubbleBottom   = bubbleTop + utils.getPixelValue(bubbleEl.offsetHeight),
+
+          // Append To Element
+          appendToEl = utils.getStepTargetHelper(appendTo),
+
+          // Calculate the target element top and bottom position
+          targetEl       = utils.getStepTarget(getCurrStep()),
+          targetBounds   = targetEl.getBoundingClientRect(),
+          targetElTop    = targetBounds.top + appendToEl.scrollTop,
+          targetElBottom = targetBounds.bottom + appendToEl.scrollTop,
+
+          // The higher of the two: bubble or target
+          targetTop      = (bubbleTop < targetElTop) ? bubbleTop : targetElTop,
+          // The lower of the two: bubble or target
+          targetBottom   = (bubbleBottom > targetElBottom) ? bubbleBottom : targetElBottom,
+
+          // Calculate the current viewport top and bottom
+          appendToElTop      = appendToEl.scrollTop,
+          appendToElBottom   = appendToElBottom + appendToEl.scrollHeight,
+
+          // This is our final target scroll value.
+          scrollToVal    = targetTop - getOption('scrollTopMargin'),
+
+          scrollEl,
+          yuiAnim,
+          yuiEase,
+          direction,
+          scrollIncr,
+          scrollTimeout,
+          scrollTimeoutFn;
+
+      // Target and bubble are both visible in viewport
+      if (targetTop >= appendToElTop && (targetTop <= appendToElTop + getOption('scrollTopMargin') || targetBottom <= appendToElBottom)) {
+          if (cb) { cb(); } // HopscotchBubble.show
+      }
+
+      // Abrupt scroll to scroll target
+      else if (!getOption('smoothScroll')) {
+          appendToEl.scrollTop = scrollToVal;
+
+          if (cb) { cb(); } // HopscotchBubble.show
+      }
+
+      // Smooth scroll to scroll target
+      else {
+        // Use jQuery if it exists
+          if (hasJquery) {
+            jQuery(appendToEl).animate({ scrollTop: scrollToVal }, getOption('scrollDuration'), cb);
+          }
+
+          // Custom scrolling solution
+          else {
+              if (scrollToVal < 0) {
+                  scrollToVal = 0;
+              }
+
+              // 48 * 10 == 480ms scroll duration
+              // make it slightly less than CSS transition duration because of
+              // setInterval overhead.
+              // To increase or decrease duration, change the divisor of scrollIncr.
+              direction = (appendToElTop > targetTop) ? -1 : 1; // -1 means scrolling up, 1 means down
+              scrollIncr = Math.abs(appendToElTop - scrollToVal) / (getOption('scrollDuration')/10);
+              scrollTimeoutFn = function() {
+                  var scrollTop = appendToEl.scrollTop,
+                      scrollTarget = scrollTop + (direction * scrollIncr);
+
+                  if ((direction > 0 && scrollTarget >= scrollToVal) ||
+                      (direction < 0 && scrollTarget <= scrollToVal)) {
+                      // Overshot our target. Just manually set to equal the target
+                      // and clear the interval
+                      scrollTarget = scrollToVal;
+                      if (cb) { cb(); } // HopscotchBubble.show
+                      appendToEl.scrollTop = scrollTarget;
+                      return;
+                  }
+
+                  appendToEl.scrollTop = scrollTarget;
+
+                  if (appendToEl.scrollTop === scrollTop) {
+                      // Couldn't scroll any further.
+                      if (cb) { cb(); } // HopscotchBubble.show
+                      return;
+                  }
+
+                  // If we reached this point, that means there's still more to scroll.
+                  setTimeout(scrollTimeoutFn, 10);
+              };
+
+              scrollTimeoutFn();
+          }
+      }
+
   },
 
   /**
@@ -1787,11 +1893,11 @@ Hopscotch = function(initOptions) {
 
     bubble.render(step, stepNum, function(adjustScroll) {
       // when done adjusting window scroll, call showBubble helper fn
-      // FIXME: this.opt is not available here need to determine a way to check if this is set
-      //var appendEl = utils.getStepTargetHelper(this.opt.appendTo);
+      var appendEl = utils.getStepTargetHelper(opt.appendTo);
       if (adjustScroll) {
+        // TODO: Refactor to use one adjust method based on parent window or appendTo Element
           if (appendEl) {
-              // TODO: adjust scroll for appended element
+              adjustAppendToElementScroll(opt.appendTo, showBubble);
           }
           else {
               adjustWindowScroll(showBubble);
