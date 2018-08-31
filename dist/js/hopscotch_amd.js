@@ -608,11 +608,12 @@ define('hopscotch', function () { 'use strict';
     setPosition: function setPosition(step) {
       var bubbleBoundingHeight,
           bubbleBoundingWidth,
-          boundingRect,
+          position,
           top,
           left,
           arrowOffset,
           verticalLeftPosition,
+          appendToEl = utils.getStepTargetHelper(this.opt.appendTo),
           targetEl = utils.getStepTarget(step),
           el = this.element,
           arrowEl = this.arrowEl,
@@ -626,22 +627,31 @@ define('hopscotch', function () { 'use strict';
       utils.removeClass(el, 'fade-in-down fade-in-up fade-in-left fade-in-right');
 
       // SET POSITION
-      boundingRect = targetEl.getBoundingClientRect();
+      if (appendToEl) {
+        position = {
+          bottom: targetEl.offsetTop + targetEl.offsetHeight,
+          left: targetEl.offsetLeft,
+          right: targetEl.offsetLeft + targetEl.offsetWidth,
+          top: targetEl.offsetTop
+        };
+      } else {
+        position = targetEl.getBoundingClientRect();
+      }
 
-      verticalLeftPosition = step.isRtl ? boundingRect.right - bubbleBoundingWidth : boundingRect.left;
+      verticalLeftPosition = step.isRtl ? position.right - bubbleBoundingWidth : position.left;
 
       if (step.placement === 'top') {
-        top = boundingRect.top - bubbleBoundingHeight - this.opt.arrowWidth;
+        top = position.top - bubbleBoundingHeight - this.opt.arrowWidth;
         left = verticalLeftPosition;
       } else if (step.placement === 'bottom') {
-        top = boundingRect.bottom + this.opt.arrowWidth;
+        top = position.bottom + this.opt.arrowWidth;
         left = verticalLeftPosition;
       } else if (step.placement === 'left') {
-        top = boundingRect.top;
-        left = boundingRect.left - bubbleBoundingWidth - this.opt.arrowWidth;
+        top = position.top;
+        left = position.left - bubbleBoundingWidth - this.opt.arrowWidth;
       } else if (step.placement === 'right') {
-        top = boundingRect.top;
-        left = boundingRect.right + this.opt.arrowWidth;
+        top = position.top;
+        left = position.right + this.opt.arrowWidth;
       } else {
         throw new Error('Bubble placement failed because step.placement is invalid or undefined!');
       }
@@ -675,25 +685,26 @@ define('hopscotch', function () { 'use strict';
 
       // HORIZONTAL OFFSET
       if (step.xOffset === 'center') {
-        left = boundingRect.left + targetEl.offsetWidth / 2 - bubbleBoundingWidth / 2;
+        left = position.left + targetEl.offsetWidth / 2 - bubbleBoundingWidth / 2;
       } else {
         left += utils.getPixelValue(step.xOffset);
       }
       // VERTICAL OFFSET
       if (step.yOffset === 'center') {
-        top = boundingRect.top + targetEl.offsetHeight / 2 - bubbleBoundingHeight / 2;
+        top = position.top + targetEl.offsetHeight / 2 - bubbleBoundingHeight / 2;
       } else {
         top += utils.getPixelValue(step.yOffset);
       }
 
+      // TODO: Will this impact scroll inside append element?
       // ADJUST TOP FOR SCROLL POSITION
-      if (!step.fixedElement) {
+      if (!step.fixedElement && !appendToEl) {
         top += utils.getScrollTop();
         left += utils.getScrollLeft();
       }
 
       // ACCOUNT FOR FIXED POSITION ELEMENTS
-      el.style.position = step.fixedElement ? 'fixed' : 'absolute';
+      el.style.position = step.fixedElement && !appendToEl ? 'fixed' : 'absolute';
 
       el.style.top = top + 'px';
       el.style.left = left + 'px';
@@ -1052,7 +1063,7 @@ define('hopscotch', function () { 'use strict';
           resizeCooldown = false,
           // for updating after window resize
       onWinResize,
-          _appendToBody2,
+          _appendOnLoad2,
           children,
           numChildren,
           node,
@@ -1108,6 +1119,20 @@ define('hopscotch', function () { 'use strict';
         }, 100);
       };
 
+      /**
+       * Append Hopscotch callout to a specific element or the body
+       *
+       * @private
+       */
+      this.appendEl = function (el) {
+        var appendToEl = utils.getStepTargetHelper(opt.appendTo);
+        if (appendToEl) {
+          appendToEl.appendChild(el);
+        } else {
+          document.body.appendChild(el);
+        }
+      };
+
       //Add listener to reset bubble position on window resize
       utils.addEvtListener(window, 'resize', onWinResize);
 
@@ -1123,32 +1148,31 @@ define('hopscotch', function () { 'use strict';
 
       //Finally, append our new bubble to body once the DOM is ready.
       if (utils.documentIsReady()) {
-        document.body.appendChild(el);
+        this.appendEl(el);
       } else {
         // Moz, webkit, Opera
         if (document.addEventListener) {
-          _appendToBody2 = function appendToBody() {
-            document.removeEventListener('DOMContentLoaded', _appendToBody2);
-            window.removeEventListener('load', _appendToBody2);
-
-            document.body.appendChild(el);
+          _appendOnLoad2 = function appendOnLoad() {
+            document.removeEventListener('DOMContentLoaded', _appendOnLoad2);
+            window.removeEventListener('load', _appendOnLoad2);
+            this.appendEl(el);
           };
 
-          document.addEventListener('DOMContentLoaded', _appendToBody2, false);
+          document.addEventListener('DOMContentLoaded', _appendOnLoad2, false);
         }
         // IE
         else {
-            _appendToBody2 = function _appendToBody() {
+            _appendOnLoad2 = function _appendOnLoad() {
               if (document.readyState === 'complete') {
-                document.detachEvent('onreadystatechange', _appendToBody2);
-                window.detachEvent('onload', _appendToBody2);
-                document.body.appendChild(el);
+                document.detachEvent('onreadystatechange', _appendOnLoad2);
+                window.detachEvent('onload', _appendOnLoad2);
+                this.appendEl(el);
               }
             };
 
-            document.attachEvent('onreadystatechange', _appendToBody2);
+            document.attachEvent('onreadystatechange', _appendOnLoad2);
           }
-        utils.addEvtListener(window, 'load', _appendToBody2);
+        utils.addEvtListener(window, 'load', _appendOnLoad2);
       }
     }
   };
@@ -1768,8 +1792,13 @@ define('hopscotch', function () { 'use strict';
 
       bubble.render(step, stepNum, function (adjustScroll) {
         // when done adjusting window scroll, call showBubble helper fn
+        var appendEl = utils.getStepTargetHelper(this.opt.appendTo);
         if (adjustScroll) {
-          adjustWindowScroll(showBubble);
+          if (appendEl) {
+            // TODO: adjust scroll for appended element
+          } else {
+            adjustWindowScroll(showBubble);
+          }
         } else {
           showBubble();
         }
@@ -1900,7 +1929,7 @@ define('hopscotch', function () { 'use strict';
         bubble = getBubble();
         // TODO: do we still need this call to .hide()? No longer using opt.animate...
         // Leaving it in for now to play it safe
-        bubble.hide(false); // make invisible for boundingRect calculations when opt.animate == true
+        bubble.hide(false); // make invisible for position calculations when opt.animate == true
 
         self.isActive = true;
 

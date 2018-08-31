@@ -1787,7 +1787,8 @@ Hopscotch = function(initOptions) {
 
     bubble.render(step, stepNum, function(adjustScroll) {
       // when done adjusting window scroll, call showBubble helper fn
-      var appendEl = utils.getStepTargetHelper(this.opt.appendTo);
+      // FIXME: this.opt is not available here need to determine a way to check if this is set
+      //var appendEl = utils.getStepTargetHelper(this.opt.appendTo);
       if (adjustScroll) {
           if (appendEl) {
               // TODO: adjust scroll for appended element
