@@ -611,15 +611,24 @@ HopscotchBubble.prototype = {
 
     // SET POSITION
       if (appendToEl) {
+        // TODO: Improve this algorithm to account for different appendTo scenarios
+        // FIXME: Remove console logs after POC complete
+          var parentPos = appendToEl.getBoundingClientRect();
+          var parentScroll = appendToEl.scrollTop;
+          var childPos = targetEl.getBoundingClientRect();
+          console.log("parentPos: " + JSON.stringify(parentPos));
+          console.log("childPos: " + JSON.stringify(childPos));
           position = {
-              bottom: targetEl.offsetTop + targetEl.offsetHeight,
-              left: targetEl.offsetLeft,
-              right: targetEl.offsetLeft + targetEl.offsetWidth,
-              top: targetEl.offsetTop
+              bottom:  childPos.bottom - parentPos.top + parentScroll,
+              left: childPos.left - parentPos.left,
+              right: parentPos.right - (parentPos.right - childPos.right),
+              top: childPos.top - parentPos.top + parentScroll
           };
       } else {
           position = targetEl.getBoundingClientRect();
       }
+
+      console.log("Position Start: " + JSON.stringify(position));
 
     verticalLeftPosition = step.isRtl ? position.right - bubbleBoundingWidth : position.left;
 
@@ -642,6 +651,8 @@ HopscotchBubble.prototype = {
     else {
       throw new Error('Bubble placement failed because step.placement is invalid or undefined!');
     }
+
+      console.log("Bubble position placement: top=" + top + " left=" + left);
 
     // SET (OR RESET) ARROW OFFSETS
     if (step.arrowOffset !== 'center') {
@@ -690,6 +701,8 @@ HopscotchBubble.prototype = {
       top += utils.getPixelValue(step.yOffset);
     }
 
+    console.log("Bubble position offset: top=" + top + " left=" + left);
+
     // TODO: Will this impact scroll inside append element?
     // ADJUST TOP FOR SCROLL POSITION
     if (!step.fixedElement && !appendToEl) {
@@ -702,6 +715,8 @@ HopscotchBubble.prototype = {
 
     el.style.top = top + 'px';
     el.style.left = left + 'px';
+
+    console.log("Bubble position final: top=" + top + " left=" + left);
   },
 
   /**

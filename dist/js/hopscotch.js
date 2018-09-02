@@ -632,15 +632,22 @@
 
       // SET POSITION
       if (appendToEl) {
+        var parentPos = appendToEl.getBoundingClientRect();
+        var parentScroll = appendToEl.scrollTop;
+        var childPos = targetEl.getBoundingClientRect();
+        console.log("parentPos: " + JSON.stringify(parentPos));
+        console.log("childPos: " + JSON.stringify(childPos));
         position = {
-          bottom: targetEl.offsetTop + targetEl.offsetHeight,
-          left: targetEl.offsetLeft,
-          right: targetEl.offsetLeft + targetEl.offsetWidth,
-          top: targetEl.offsetTop
+          bottom: childPos.bottom - parentPos.top + parentScroll,
+          left: childPos.left - parentPos.left,
+          right: parentPos.right - (parentPos.right - childPos.right),
+          top: childPos.top - parentPos.top + parentScroll
         };
       } else {
         position = targetEl.getBoundingClientRect();
       }
+
+      console.log("Position Start: " + JSON.stringify(position));
 
       verticalLeftPosition = step.isRtl ? position.right - bubbleBoundingWidth : position.left;
 
@@ -659,6 +666,8 @@
       } else {
         throw new Error('Bubble placement failed because step.placement is invalid or undefined!');
       }
+
+      console.log("Bubble position placement: top=" + top + " left=" + left);
 
       // SET (OR RESET) ARROW OFFSETS
       if (step.arrowOffset !== 'center') {
@@ -700,6 +709,8 @@
         top += utils.getPixelValue(step.yOffset);
       }
 
+      console.log("Bubble position offset: top=" + top + " left=" + left);
+
       // TODO: Will this impact scroll inside append element?
       // ADJUST TOP FOR SCROLL POSITION
       if (!step.fixedElement && !appendToEl) {
@@ -712,6 +723,8 @@
 
       el.style.top = top + 'px';
       el.style.left = left + 'px';
+
+      console.log("Bubble position final: top=" + top + " left=" + left);
     },
 
     /**
@@ -1416,6 +1429,7 @@
      * @param {Function} cb Callback to invoke after done scrolling.
      */
     adjustAppendToElementScroll = function adjustAppendToElementScroll(appendTo, cb) {
+      // TODO: Refactor to combine it with adjustWindowScroll
       var bubble = getBubble(),
 
 
@@ -1917,8 +1931,8 @@
         // when done adjusting window scroll, call showBubble helper fn
         var appendEl = utils.getStepTargetHelper(opt.appendTo);
         if (adjustScroll) {
+          // TODO: Refactor to use one adjust method based on parent window or appendTo Element
           if (appendEl) {
-            // TODO: adjust scroll for appended element
             adjustAppendToElementScroll(opt.appendTo, showBubble);
           } else {
             adjustWindowScroll(showBubble);
