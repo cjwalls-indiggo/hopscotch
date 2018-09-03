@@ -628,6 +628,8 @@ define('hopscotch', function () { 'use strict';
 
       // SET POSITION
       if (appendToEl) {
+        // TODO: Improve this algorithm to account for different appendTo scenarios
+        // FIXME: Remove console logs after POC complete
         var parentPos = appendToEl.getBoundingClientRect();
         var parentScroll = appendToEl.scrollTop;
         var childPos = targetEl.getBoundingClientRect();
@@ -803,6 +805,7 @@ define('hopscotch', function () { 'use strict';
         },
         step: {
           num: idx,
+          displayNum: step.displayNum,
           isLast: utils.valOrDefault(isLast, false),
           title: step.title || '',
           content: step.content || '',
@@ -1159,6 +1162,9 @@ define('hopscotch', function () { 'use strict';
 
       //Hide the bubble by default
       this.hide();
+
+      // TODO: Consider moving this to a function to call for each step
+      // this will allow you to move a bubble appended to different parent elements
 
       //Finally, append our new bubble to body once the DOM is ready.
       if (utils.documentIsReady()) {
@@ -2619,7 +2625,7 @@ __p += '\n<div class="hopscotch-bubble-container" style="width: ' +
 'px;">\n  ';
  if(tour.isTour){ ;
 __p += '<span class="hopscotch-bubble-number">' +
-((__t = ( i18n.stepNum )) == null ? '' : __t) +
+((__t = ( step.displayNum ? step.displayNum : i18n.stepNum )) == null ? '' : __t) +
 '</span>';
  } ;
 __p += '\n  <div class="hopscotch-bubble-content">\n    ';

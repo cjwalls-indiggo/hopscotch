@@ -801,6 +801,7 @@ HopscotchBubble.prototype = {
       },
       step:{
         num: idx,
+        displayNum: step.displayNum,
         isLast: utils.valOrDefault(isLast, false),
         title: (step.title || ''),
         content: (step.content || ''),
@@ -1157,6 +1158,9 @@ HopscotchBubble.prototype = {
 
     //Hide the bubble by default
     this.hide();
+
+    // TODO: Consider moving this to a function to call for each step
+    // this will allow you to move a bubble appended to different parent elements
 
     //Finally, append our new bubble to body once the DOM is ready.
     if (utils.documentIsReady()) {
